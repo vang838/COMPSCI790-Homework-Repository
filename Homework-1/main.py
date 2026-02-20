@@ -1,67 +1,140 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 
-device = torch.device("cuda")
+import matplotlib.pyplot as plt
+from IPython.display import clear_output
 
-# Load MNIST
-train_dataset = torchvision.datasets.MNIST(
+import time
+
+import pynvml
+
+from torch.profiler import profile, record_function, ProfilerActivity
+
+#device = torch.device("cuda" if torch.cuda.is_available else "cpu")
+device = torch.device("cuda")
+print("Using device:", device)
+if device.type == "cuda":
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+
+transform = transforms.Compose([transforms.ToTensor()])
+
+trainset = torchvision.datasets.CIFAR10(
     root='./data',
     train=True,
-    transform=transforms.ToTensor(),
-    download=True
+    download=True,
+    transform=transform
 )
 
-train_loader = torch.utils.data.DataLoader(
-    dataset=train_dataset,
+trainloader = torch.utils.data.DataLoader(
+    trainset,
     batch_size=64,
     shuffle=True
 )
 
-class CNN(nn.Module):
 
-    def __init__(self):
-        super().__init__()
+model = nn.Sequential(
+    nn.Conv2d(3,16,kernel_size=3),
+    nn.ReLU(),
+    nn.MaxPool2d(2),
 
-        self.conv1 = nn.Conv2d(1, 16, 3)
-        self.pool = nn.MaxPool2d(2,2)
-        self.conv2 = nn.Conv2d(16, 32, 3)
+    nn.Conv2d(16,32,kernel_size=3),
+    nn.ReLU(),
+    nn.MaxPool2d(2),
 
-        self.fc1 = nn.Linear(32*5*5, 128)
-        self.fc2 = nn.Linear(128, 10)
+    nn.Flatten(),
 
-    def forward(self, x):
+    nn.Linear(32*6*6,128),
+    nn.ReLU(),
 
-        x = self.pool(torch.relu(self.conv1(x)))
-        x = self.pool(torch.relu(self.conv2(x)))
+    nn.Linear(128,10)
+).to(device)
 
-        x = x.view(-1, 32*5*5)
+crit = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+gpuMem = []
+gpuUtil = []
+steps = []
 
-        return x
+def renderPlot():
+    plt.clf()
+    plt.subplot(1,2,1)
 
-model = CNN().to(device)
+    plt.plot(steps,gpuMem)
+    plt.title("GPU Memory Usage")
+    plt.xlabel("Step")
+    plt.ylabel("MB")
 
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters())
+    plt.subplot(1,2,2)
+    plt.plot(steps,gpuUtil)
+    plt.title("GPU Utilization")
+    plt.xlabel("Step")
+    plt.ylabel("%")
+    
+    plt.pause(0.01)
 
-# Train
-for epoch in range(2):
 
-    for images, labels in train_loader:
+# train
+print("Monitoring Started")
+step = 0
+with profile(
+    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+    record_shapes=True,
+    profile_memory=True
+) as prof:
+    for epoch in range(1):
+        for inputs, labels in trainloader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = crit(outputs,labels)
+            loss.backward()
+            optimizer.step()
 
-        images = images.to(device)
-        labels = labels.to(device)
+            # gpu mem
+            if device.type == "cuda":
+                mem = torch.cuda.memory_allocated() / 1024**2
+                util = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
+            
+            else:
+                mem = 0
+                util = 0
+            
+            gpuMem.append(mem)
+            gpuUtil.append(util)
+            steps.append(step)
 
-        outputs = model(images)
+            renderPlot()
+            step += 1
+            
+            if step > 100:
+                break
+        break
 
-        loss = criterion(outputs, labels)
+# profiler output
+print(
+    prof.key_averages().table(
+        sort_by="cuda_memory_usage",
+        row_limit=10
+    )
+)
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+# layer plot
+layerNames = []
+layerMem = []
 
-    print("Epoch done")
+for item in prof.key_averages():
+    layerNames.append(item.key)
+    layerMem.append(item.cuda_memory_usage / 1024**2)
+
+plt.figure(figsize=(10,6))
+plt.barh(layerNames,layerMem)
+plt.title("Memory Usage per Layer")
+plt.xlabel("Memory in MB")
+plt.show()
+
+print("Complete")
