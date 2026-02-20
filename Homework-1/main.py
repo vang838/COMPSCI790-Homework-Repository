@@ -1,3 +1,6 @@
+import os
+os.makedirs("plots", exist_ok=True)
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -10,6 +13,8 @@ from IPython.display import clear_output
 import time
 
 import pynvml
+plt.ion()
+fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10,5))
 
 from torch.profiler import profile, record_function, ProfilerActivity
 
@@ -31,7 +36,7 @@ trainset = torchvision.datasets.CIFAR10(
 
 trainloader = torch.utils.data.DataLoader(
     trainset,
-    batch_size=64,
+    batch_size=512, # adjust this num for more mem usage
     shuffle=True
 )
 
@@ -56,30 +61,41 @@ model = nn.Sequential(
 crit = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-gpuMem = []
+gpuMemAllocated = []
+gpuMemReserved = []
 gpuUtil = []
 steps = []
 
 def renderPlot():
-    plt.clf()
-    plt.subplot(1,2,1)
+    #clear_output(wait=True)
+    ax1.clear()
+    ax2.clear()
 
-    plt.plot(steps,gpuMem)
-    plt.title("GPU Memory Usage")
-    plt.xlabel("Step")
-    plt.ylabel("MB")
+    ax1.plot(steps, gpuMemAllocated, color='blue', label='Allocated')
+    ax1.plot(steps, gpuMemReserved, color='green', label='Reserved')
+    ax1.set_title("GPU Memory Usage")
+    ax1.set_xlabel("Step")
+    ax1.set_ylabel("MB")
+    ax1.set_ylim(0, max(gpuMemReserved) * 1.1)
 
-    plt.subplot(1,2,2)
-    plt.plot(steps,gpuUtil)
-    plt.title("GPU Utilization")
-    plt.xlabel("Step")
-    plt.ylabel("%")
-    
+    ax2.plot(steps, gpuUtil, color='orange')
+    ax2.set_title("GPU Utilization")
+    ax2.set_xlabel("Step")
+    ax2.set_ylabel("%")
+    ax1.legend()
+
+    plt.tight_layout()
+    plt.draw()
     plt.pause(0.01)
 
+    #print("Memory:", mem)
+    #print("Utilization", util)
+
+    plt.savefig("plots/runtime.png")
 
 # train
 print("Monitoring Started")
+step = 0
 step = 0
 with profile(
     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
@@ -95,25 +111,28 @@ with profile(
             loss.backward()
             optimizer.step()
 
-            # gpu mem
+            # gpu memory and utilization
             if device.type == "cuda":
-                mem = torch.cuda.memory_allocated() / 1024**2
+                mem_alloc = torch.cuda.memory_allocated() / 1024**2
+                mem_res = torch.cuda.memory_reserved() / 1024**2
                 util = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
-            
             else:
-                mem = 0
+                mem_alloc = 0
+                mem_res = 0
                 util = 0
-            
-            gpuMem.append(mem)
+
+            gpuMemAllocated.append(mem_alloc)
+            gpuMemReserved.append(mem_res)
             gpuUtil.append(util)
             steps.append(step)
 
             renderPlot()
             step += 1
-            
+
             if step > 100:
                 break
         break
+
 
 # profiler output
 print(
@@ -123,18 +142,72 @@ print(
     )
 )
 
-# layer plot
+print("\nCollecting per-layer GPU memory usage...")
 layerNames = []
 layerMem = []
 
-for item in prof.key_averages():
-    layerNames.append(item.key)
-    layerMem.append(item.cuda_memory_usage / 1024**2)
+x, _ = next(iter(trainloader))
+x = x.to(device)
+
+# Define readable names for each layer
+readableNames = [
+    "Conv2d_1",
+    "ReLU_1",
+    "MaxPool_1",
+    "Conv2d_2",
+    "ReLU_2",
+    "MaxPool_2",
+    "Flatten",
+    "Linear_1",
+    "ReLU_3",
+    "Linear_2"
+]
+
+for idx, (name, layer) in enumerate(model.named_children()):
+    torch.cuda.reset_peak_memory_stats(device)
+    x = layer(x)
+    mem = torch.cuda.max_memory_allocated(device)
+
+    # Use readable name if available
+    if idx < len(readableNames):
+        layerNames.append(readableNames[idx])
+    else:
+        layerNames.append(name)
+
+    layerMem.append(mem / 1024**2)
+
+# Plot with readable names
+plt.figure(figsize=(10, 6))
+plt.barh(layerNames, layerMem, color='skyblue')
+plt.title("GPU Memory Usage per Layer")
+plt.xlabel("Memory in MB")
+
+# Add text labels on bars
+for i, v in enumerate(layerMem):
+    plt.text(v + 1, i, f"{v:.1f} MB", va='center')
+
+plt.tight_layout()
+plt.savefig("plots/layerMem.png")
+plt.show()
+
+
+print("\nCollecting per-layer GPU time usage...")
+layerNamesProfiler = []
+layerCudaTime = []
+
+for evt in prof.key_averages():
+    name = evt.key
+    if "conv" in name.lower() or "linear" in name.lower():
+        layerNamesProfiler.append(name)
+        cuda_time = getattr(evt, "cuda_time_total", 0)  # fallback to 0 if attribute missing
+        layerCudaTime.append(cuda_time / 1000)
 
 plt.figure(figsize=(10,6))
-plt.barh(layerNames,layerMem)
-plt.title("Memory Usage per Layer")
-plt.xlabel("Memory in MB")
+plt.barh(layerNamesProfiler, layerCudaTime)
+plt.title("GPU Time per Layer")
+plt.xlabel("CUDA Time (ms)")
+plt.tight_layout()
+plt.savefig("plots/layerGPUTime.png")
 plt.show()
 
 print("Complete")
