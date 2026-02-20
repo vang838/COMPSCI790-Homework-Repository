@@ -74,7 +74,7 @@ class Monitor:
         self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize(10,8))
         self.fig.suptitle("GPU and Mem Monitoring")
     
-    def update_plots(self):
+    def updatePlots(self):
         """Update plots with latest metrics"""
         self.ax1.clear()
         self.ax2.clear()
@@ -102,3 +102,20 @@ class Monitor:
         
         plt.tight_layout()
         plt.pause(0.001)
+
+    def profileLayers(net, device):
+        dummy = torch.randn(1,3,32,32).to(device)
+        layerStats = defaultdict(lambda: {'memory': 0, 'flops': 0})
+
+        with torch.profiler.profile(
+            activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+            record_shapes=True,
+            with_stack=True
+        ) as prof:
+            net(dummy)
+
+        for event in prof.key_averages():
+            if 'Conv' in event.key or 'Linear' in event.key:
+                layerName = event.key
+                layerStats[layerName]['memory'] = event.self_cuda_memory_usage / 1e6
+        return layerStats, prof
