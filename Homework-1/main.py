@@ -67,4 +67,38 @@ class Metrics:
                     self.gpuUtilization.append(0)
             else:
                 self.gpuUtilization.append(0)
+
+class Monitor:
+    def __init__(self):
+        self.metrics = Metrics()
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize(10,8))
+        self.fig.suptitle("GPU and Mem Monitoring")
+    
+    def update_plots(self):
+        """Update plots with latest metrics"""
+        self.ax1.clear()
+        self.ax2.clear()
         
+        if self.metrics.timestamps:
+            # GPU Memory Plot
+            self.ax1.plot(self.metrics.timestamps, self.metrics.gpu_memory_allocated, 
+                         label='Allocated', linewidth=2)
+            self.ax1.plot(self.metrics.timestamps, self.metrics.gpu_memory_reserved, 
+                         label='Reserved', linewidth=2)
+            self.ax1.set_xlabel('Time (s)')
+            self.ax1.set_ylabel('Memory (MB)')
+            self.ax1.set_title('GPU Memory Usage')
+            self.ax1.legend()
+            self.ax1.grid(True)
+            
+            # GPU Utilization Plot
+            self.ax2.plot(self.metrics.timestamps, self.metrics.gpu_utilization, 
+                         color='orange', linewidth=2)
+            self.ax2.set_xlabel('Time (s)')
+            self.ax2.set_ylabel('Utilization (%)')
+            self.ax2.set_title('GPU Utilization')
+            self.ax2.set_ylim([0, 100])
+            self.ax2.grid(True)
+        
+        plt.tight_layout()
+        plt.pause(0.001)
