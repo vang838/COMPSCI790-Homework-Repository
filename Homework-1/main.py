@@ -149,40 +149,25 @@ layerMem = []
 x, _ = next(iter(trainloader))
 x = x.to(device)
 
-# Define readable names for each layer
-readableNames = [
-    "Conv2d_1",
-    "ReLU_1",
-    "MaxPool_1",
-    "Conv2d_2",
-    "ReLU_2",
-    "MaxPool_2",
-    "Flatten",
-    "Linear_1",
-    "ReLU_3",
-    "Linear_2"
-]
+for name, layer in model.named_children():
 
-for idx, (name, layer) in enumerate(model.named_children()):
     torch.cuda.reset_peak_memory_stats(device)
+
     x = layer(x)
+
     mem = torch.cuda.max_memory_allocated(device)
 
-    # Use readable name if available
-    if idx < len(readableNames):
-        layerNames.append(readableNames[idx])
-    else:
-        layerNames.append(name)
-
+    layerNames.append(name)
     layerMem.append(mem / 1024**2)
 
-# Plot with readable names
+
+# mem usage per-layer plot
 plt.figure(figsize=(10, 6))
 plt.barh(layerNames, layerMem, color='skyblue')
 plt.title("GPU Memory Usage per Layer")
 plt.xlabel("Memory in MB")
 
-# Add text labels on bars
+# Add text labels
 for i, v in enumerate(layerMem):
     plt.text(v + 1, i, f"{v:.1f} MB", va='center')
 
@@ -190,7 +175,7 @@ plt.tight_layout()
 plt.savefig("plots/layerMem.png")
 plt.show()
 
-
+# time usage per-layer plot
 print("\nCollecting per-layer GPU time usage...")
 layerNamesProfiler = []
 layerCudaTime = []
@@ -199,8 +184,7 @@ for evt in prof.key_averages():
     name = evt.key
     if "conv" in name.lower() or "linear" in name.lower():
         layerNamesProfiler.append(name)
-        cuda_time = getattr(evt, "cuda_time_total", 0)  # fallback to 0 if attribute missing
-        layerCudaTime.append(cuda_time / 1000)
+        layerCudaTime.append(evt.cuda_time_total / 1000)
 
 plt.figure(figsize=(10,6))
 plt.barh(layerNamesProfiler, layerCudaTime)
