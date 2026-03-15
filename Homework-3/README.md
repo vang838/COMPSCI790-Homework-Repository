@@ -19,6 +19,7 @@ can be removed entirely to look like this
 matrix = torch.rand(10000, 10000)
 ```
 By default, PyTorch will use the cpu unless a device is specified.
+
 2. The setup will still work if you are using a Python Virtual Environment instead of Miniconda.  The setup will be different but the library installations will still be the same.
 
 ---
