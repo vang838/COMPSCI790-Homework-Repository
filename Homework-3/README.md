@@ -18,7 +18,7 @@ can be removed entirely to look like this
 ```bash
 matrix = torch.rand(10000, 10000)
 ```
-By default, PyTorch will use the cpu unless a device is specified.
+PyTorch should default to the cpu even if you don't remove the device parameters but if you still run into errors, remove the explicit device parameter.
 
 2. The setup will still work if you are using a Python Virtual Environment instead of Miniconda.  The setup will be different but the library installations will still be the same.
 
