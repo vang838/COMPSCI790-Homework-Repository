@@ -13,11 +13,11 @@
 ## Libraries:
 ### Torch (PyTorch) Nightly or Stable (With CUDA)
 - **Nightly install via pip:**
-```bash
-pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu130
+
+```bash pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu130 bash'''
 - **Stable install via pip:**
-'''bash
-Stable install via pip: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130'''
+
+Stable install via pip: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 Link to Install Documentation: https://pytorch.org/get-started/locally/
 
 ### Triton
