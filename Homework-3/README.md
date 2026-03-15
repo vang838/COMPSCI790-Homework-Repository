@@ -60,7 +60,7 @@ pip install triton
 pip install -U "jax[cuda13]"
 ```
 
-- **MatplotLib** 
+- **[MatPlotLib](https://pypi.org/project/matplotlib/)** 
 ```bash 
 pip install matplotlib
 ```
