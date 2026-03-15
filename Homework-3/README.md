@@ -17,30 +17,24 @@
 pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu130
 ```
 
-- **Stable install via pip:**
+- **Stable install (https://pytorch.org/get-started/locally/):**
 ```bash 
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130 
 ```
 
-Link to Install Documentation: https://pytorch.org/get-started/locally/
-
-- **Triton**
-Install via pip 
+- **Triton (https://pypi.org/project/triton/3.6.0/)**
 ```bash
 pip install triton
 ```
-Link to Install Documentation: https://pypi.org/project/triton/3.6.0/
 
-- **Jax (With CUDA)**
+- **Jax with CUDA (https://docs.jax.dev/en/latest/installation.html)**
 Install via pip 
 ```bash 
 pip install -U "jax[cuda13]"
 ```
-Link to Install Documentation: https://docs.jax.dev/en/latest/installation.html
-Additional Info: This does not need the required jaxlib install via pip since jax cuda installs the lib files by default
+Additional Info: This does not need the explicit jaxlib install via pip since jax cuda installs the lib files by default
 
 - **MatplotLib** 
-Install via pip
 ```bash 
 pip install matplotlib
 ```
