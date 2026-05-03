@@ -89,6 +89,30 @@ def evaluate_strategy(
             avg_quality = total_quality / frame_count
 
             return avg_latency, avg_quality
+        
+def evaluate_strategy(
+    policy: dict[str, Any],
+    frames: list[dict[str, Any]],
+    fixed_mode: str | None = None,
+) -> tuple[float, float]:
+    total_latency = 0.0
+    total_quality = 0.0
+
+    for frame in frames:
+        if fixed_mode is None:
+            mode, _ = select_mode(policy, frame)
+        else:
+            mode = fixed_mode
+
+        mode_info = policy["modes"][mode]
+        total_latency += float(mode_info["latency_ms"])
+        total_quality += float(mode_info["quality"])
+
+    frame_count = len(frames)
+    avg_latency = total_latency / frame_count
+    avg_quality = total_quality / frame_count
+
+    return avg_latency, avg_quality
 
 def main() -> None:
     policy = load_policy(POLICY_PATH)
@@ -136,6 +160,33 @@ def main() -> None:
     print("-" * 30)
     print(f"Average latency: {avg_latency:.2f} ms/frame")
     print(f"Average quality score: {avg_quality:.2f}")
+    
+    print()
+    print("Baseline Comparison")
+    print("-" * 65)
+    print("Strategy       | Avg Latency(ms/frame) | Avg Quality")
+    print("-" * 65)
+
+    strategies = [
+        ("Fixed fast", "fast"),
+        ("Fixed balanced", "balanced"),
+        ("Fixed accurate", "accurate"),
+        ("Adaptive DSL", None),
+    ]
+
+    for strategy_name, fixed_mode in strategies:
+        avg_latency, avg_quality = evaluate_strategy(
+            policy=policy,
+            frames=frames,
+            strategy_name=strategy_name,
+            fixed_mode=fixed_mode,
+        )
+
+        print(
+            f"{strategy_name:<14} | "
+            f"{avg_latency:>21.2f} | "
+            f"{avg_quality:.2f}"
+        )
 
 
 if __name__ == "__main__":

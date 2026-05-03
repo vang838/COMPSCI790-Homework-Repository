@@ -10,3 +10,12 @@ Summary
 ------------------------------
 Average latency: 58.00 ms/frame
 Average quality score: 0.84
+
+Baseline Comparison
+-----------------------------------------------------------------
+Strategy       | Avg Latency(ms/frame) | Avg Quality
+-----------------------------------------------------------------
+Fixed fast     |                 20.00 | 0.70
+Fixed balanced |                 45.00 | 0.84
+Fixed accurate |                 90.00 | 0.92
+Adaptive DSL   |                 58.00 | 0.84
