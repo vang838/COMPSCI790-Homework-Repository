@@ -1,0 +1,33 @@
+{
+  "modes": {
+    "fast": {
+      "latency_ms": 20,
+      "quality": 0.70
+    },
+    "balanced": {
+      "latency_ms": 45,
+      "quality": 0.84
+    },
+    "accurate": {
+      "latency_ms": 90,
+      "quality": 0.92
+    }
+  },
+  "rules": [
+    {
+      "name": "high_motion_use_accurate",
+      "condition": "motion > 0.70",
+      "mode": "accurate"
+    },
+    {
+      "name": "queue_pressure_use_fast",
+      "condition": "queue > 8",
+      "mode": "fast"
+    },
+    {
+      "name": "default_balanced",
+      "condition": "true",
+      "mode": "balanced"
+    }
+  ]
+}
