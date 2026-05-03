@@ -1,0 +1,19 @@
+Spatial Remix-style experiment complete.
+Latency budget: 160.00 ms/frame
+
+Strategy                | Avg Latency | Avg Weighted Quality | Budget Violations
+-----------------------------------------------------------------------------------
+Uniform fast            |       72.00 |        0.60          |          0
+Uniform balanced        |      162.00 |        0.80          |         100
+Uniform accurate        |      405.00 |        0.92          |         100
+Uniform feasible (fast) |       72.00 |        0.60          |          0
+Top-K accurate          |      146.00 |        0.72          |          0
+Greedy budget           |      153.15 |        0.80          |          0
+Random budgeted         |      152.00 |        0.78          |          0
+Spatial DSL             |      129.13 |        0.74          |          0
+
+Frame decisions written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/spatial_frame_decisions.csv
+Summary written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/spatial_experiment_summary.csv
+Mode distribution written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/spatial_mode_distribution.csv
+Multi-seed summary written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/spatial_multiseed_summary.csv
+Budget sweep written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/spatial_budget_sweep.csv

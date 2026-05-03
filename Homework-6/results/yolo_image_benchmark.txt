@@ -1,0 +1,27 @@
+YOLO Image Benchmark Summary
+============================
+
+Model: yolo11n.pt
+Image: bus.jpg
+Device argument: 0
+Device name: NVIDIA GeForce RTX 3090
+Warm-up runs excluded: 3
+Measured runs: 10
+
+Wall-clock latency after warm-up:
+- Average: 21.07 ms
+- Minimum: 13.34 ms
+- Maximum: 37.46 ms
+
+YOLO-reported inference time:
+- Average: 14.25 ms
+- Minimum: 8.68 ms
+- Maximum: 29.74 ms
+
+Detection results:
+- Average detections: 5.00
+- Average mean confidence: 0.8369
+
+Output files:
+- /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_image_benchmark.txt
+- /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_image_benchmark.csv

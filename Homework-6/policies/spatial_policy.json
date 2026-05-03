@@ -1,0 +1,59 @@
+{
+  "description": "Remix-style spatial adaptive inference policy. Each frame is divided into blocks, and the runtime assigns more computation to important blocks while enforcing a latency budget.",
+
+  "frame_grid": {
+    "rows": 3,
+    "cols": 3
+  },
+
+  "latency_budget_ms": 160,
+
+  "mode_order": ["skip", "fast", "balanced", "accurate"],
+
+  "modes": {
+    "skip": {
+      "latency_ms": 0,
+      "quality": 0.0
+    },
+    "fast": {
+      "latency_ms": 8,
+      "quality": 0.6
+    },
+    "balanced": {
+      "latency_ms": 18,
+      "quality": 0.8
+    },
+    "accurate": {
+      "latency_ms": 45,
+      "quality": 0.92
+    }
+  },
+
+  "rules": [
+    {
+      "name": "important_block_use_accurate",
+      "condition": "importance >= 0.80",
+      "mode": "accurate"
+    },
+    {
+      "name": "motion_hotspot_use_accurate",
+      "condition": "motion >= 0.70 and importance >= 0.50",
+      "mode": "accurate"
+    },
+    {
+      "name": "medium_block_use_balanced",
+      "condition": "importance >= 0.50",
+      "mode": "balanced"
+    },
+    {
+      "name": "low_block_use_fast",
+      "condition": "importance >= 0.20",
+      "mode": "fast"
+    },
+    {
+      "name": "unimportant_block_skip",
+      "condition": "true",
+      "mode": "skip"
+    }
+  ]
+}

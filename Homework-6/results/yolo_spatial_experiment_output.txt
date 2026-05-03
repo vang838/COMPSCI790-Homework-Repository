@@ -1,0 +1,18 @@
+YOLO Spatial DSL experiment complete.
+Source: bus.jpg
+Frames evaluated: 20
+Device: NVIDIA GeForce RTX 3090
+
+Strategy              | Avg Latency(ms/frame) | Avg Detections | Mean Confidence
+----------------------------------------------------------------------------------
+Full-frame YOLO       |                 13.93 |           5.00 | 0.8369
+Spatial DSL + YOLO    |                 25.85 |           3.00 | 0.3782
+
+Latency speedup: -85.54%
+Average selected blocks/frame: 2.00 of 9
+Reference detection coverage: 0.0000
+Spatial detection recovery:   0.2000
+
+Summary written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_spatial_summary.csv
+Frame decisions written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_spatial_frame_decisions.csv
+Detections written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_spatial_detections.csv

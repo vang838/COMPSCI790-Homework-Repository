@@ -1,3 +1,9 @@
+
+Mode Distribution
+------------------------------
+fast      :  24 frames (24.0%)
+balanced  :  42 frames (42.0%)
+accurate  :  34 frames (34.0%)
 Synthetic experiment complete.
 Frames evaluated: 100
 Frame decisions written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/frame_decisions.csv

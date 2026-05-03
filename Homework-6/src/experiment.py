@@ -90,6 +90,24 @@ def write_summary(policy: dict[str, Any], frames: list[dict[str, Any]]) -> None:
                     f"{avg_quality:.2f}",
                 ]
             )
+def print_mode_distribution(policy: dict[str, Any], frames: list[dict[str, Any]]) -> None:
+    counts = {
+        "fast": 0,
+        "balanced": 0,
+        "accurate": 0,
+    }
+
+    for frame in frames:
+        mode, _ = select_mode(policy, frame)
+        counts[mode] += 1
+
+    print()
+    print("Mode Distribution")
+    print("-" * 30)
+
+    for mode, count in counts.items():
+        percentage = count / len(frames) * 100
+        print(f"{mode:<10}: {count:>3} frames ({percentage:.1f}%)")
 
 
 def main() -> None:
@@ -98,7 +116,8 @@ def main() -> None:
 
     write_frame_decisions(policy, frames)
     write_summary(policy, frames)
-
+    print_mode_distribution(policy, frames)
+    
     print("Synthetic experiment complete.")
     print(f"Frames evaluated: {len(frames)}")
     print(f"Frame decisions written to: {FRAME_RESULTS_PATH}")
