@@ -1,0 +1,502 @@
+import argparse
+import csv
+import time
+from pathlib import Path
+from statistics import mean
+from typing import Any
+
+import cv2
+import numpy as np
+import torch
+from ultralytics import YOLO
+
+from src.spatial_runtime import load_policy, select_mode
+from src.yolo_spatial_experiment import (
+    BASE_DIR,
+    RESULTS_DIR,
+    DEFAULT_MODEL_PATH,
+    DEFAULT_IMAGE_PATH,
+    DEFAULT_POLICY_PATH,
+    ensure_default_image_exists,
+    get_device,
+    cuda_sync,
+    load_frames,
+    split_frame_into_blocks,
+    predict_timed,
+    extract_detections,
+    compute_detection_recovery,
+    compute_reference_coverage,
+    mean_confidence,
+)
+
+
+SUMMARY_PATH = RESULTS_DIR / "yolo_tiled_summary.csv"
+DECISIONS_PATH = RESULTS_DIR / "yolo_tiled_spatial_decisions.csv"
+DETECTIONS_PATH = RESULTS_DIR / "yolo_tiled_detections.csv"
+
+
+def write_summary(summary: dict[str, Any]) -> None:
+    with SUMMARY_PATH.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=list(summary.keys()))
+        writer.writeheader()
+        writer.writerow(summary)
+
+
+def write_spatial_decisions(rows: list[dict[str, Any]]) -> None:
+    with DECISIONS_PATH.open("w", encoding="utf-8", newline="") as file:
+        fieldnames = [
+            "frame_id",
+            "block_id",
+            "row",
+            "col",
+            "importance",
+            "motion",
+            "edge",
+            "selected_mode",
+            "rule_applied",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+        ]
+
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def write_detections(rows: list[dict[str, Any]]) -> None:
+    with DETECTIONS_PATH.open("w", encoding="utf-8", newline="") as file:
+        fieldnames = [
+            "frame_id",
+            "strategy",
+            "block_id",
+            "class_id",
+            "confidence",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+        ]
+
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for row in rows:
+            writer.writerow(
+                {
+                    "frame_id": row["frame_id"],
+                    "strategy": row["strategy"],
+                    "block_id": row["block_id"],
+                    "class_id": row["class_id"],
+                    "confidence": f"{float(row['confidence']):.4f}",
+                    "x1": f"{float(row['x1']):.2f}",
+                    "y1": f"{float(row['y1']):.2f}",
+                    "x2": f"{float(row['x2']):.2f}",
+                    "y2": f"{float(row['y2']):.2f}",
+                }
+            )
+
+
+def run_uniform_tiled(
+    model: YOLO,
+    frame: np.ndarray,
+    previous_gray: np.ndarray | None,
+    rows: int,
+    cols: int,
+    device: int | str,
+    imgsz: int,
+    conf: float,
+    frame_id: int,
+) -> tuple[float, list[dict[str, Any]]]:
+    start = time.perf_counter()
+
+    blocks = split_frame_into_blocks(
+        frame=frame,
+        previous_gray=previous_gray,
+        rows=rows,
+        cols=cols,
+    )
+
+    crops = [block["crop"] for block in blocks]
+
+    results, _ = predict_timed(
+        model=model,
+        source=crops,
+        device=device,
+        imgsz=imgsz,
+        conf=conf,
+    )
+
+    cuda_sync(device)
+    end = time.perf_counter()
+
+    detections = extract_detections(
+        results=results,
+        frame_id=frame_id,
+        strategy="uniform_tiled_all_blocks",
+        block_meta=blocks,
+    )
+
+    latency_ms = (end - start) * 1000
+    return latency_ms, detections
+
+
+def run_spatial_dsl_tiled(
+    model: YOLO,
+    frame: np.ndarray,
+    previous_gray: np.ndarray | None,
+    policy: dict[str, Any],
+    rows: int,
+    cols: int,
+    device: int | str,
+    imgsz: int,
+    conf: float,
+    frame_id: int,
+) -> tuple[float, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    start = time.perf_counter()
+
+    blocks = split_frame_into_blocks(
+        frame=frame,
+        previous_gray=previous_gray,
+        rows=rows,
+        cols=cols,
+    )
+
+    selected_blocks: list[dict[str, Any]] = []
+    decision_rows: list[dict[str, Any]] = []
+
+    for block in blocks:
+        mode, rule_name = select_mode(policy, block)
+        block["selected_mode"] = mode
+        block["rule_applied"] = rule_name
+
+        decision_rows.append(
+            {
+                "frame_id": frame_id,
+                "block_id": block["block_id"],
+                "row": block["row"],
+                "col": block["col"],
+                "importance": block["importance"],
+                "motion": block["motion"],
+                "edge": block["edge"],
+                "selected_mode": mode,
+                "rule_applied": rule_name,
+                "x1": block["x1"],
+                "y1": block["y1"],
+                "x2": block["x2"],
+                "y2": block["y2"],
+            }
+        )
+
+        if mode != "skip":
+            selected_blocks.append(block)
+
+    detections: list[dict[str, Any]] = []
+
+    if selected_blocks:
+        crops = [block["crop"] for block in selected_blocks]
+
+        results, _ = predict_timed(
+            model=model,
+            source=crops,
+            device=device,
+            imgsz=imgsz,
+            conf=conf,
+        )
+
+        detections = extract_detections(
+            results=results,
+            frame_id=frame_id,
+            strategy="spatial_dsl_selected_blocks",
+            block_meta=selected_blocks,
+        )
+
+    cuda_sync(device)
+    end = time.perf_counter()
+
+    latency_ms = (end - start) * 1000
+    return latency_ms, detections, selected_blocks, decision_rows
+
+
+def run_experiment(args: argparse.Namespace) -> None:
+    RESULTS_DIR.mkdir(exist_ok=True)
+
+    if args.source == "bus.jpg":
+        ensure_default_image_exists()
+
+    source_path = BASE_DIR / args.source
+
+    policy = load_policy(DEFAULT_POLICY_PATH)
+    rows = int(policy["frame_grid"]["rows"])
+    cols = int(policy["frame_grid"]["cols"])
+
+    tile_imgsz = int(policy["modes"]["detect"]["imgsz"])
+
+    device = get_device()
+    device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+
+    model = YOLO(str(DEFAULT_MODEL_PATH))
+    frames = load_frames(source_path, max_frames=args.frames)
+
+    # Warm-up on first frame.
+    for _ in range(args.warmup):
+        model.predict(
+            source=frames[0],
+            device=device,
+            imgsz=args.reference_imgsz,
+            conf=args.conf,
+            verbose=False,
+        )
+
+    previous_gray: np.ndarray | None = None
+
+    full_latencies: list[float] = []
+    tiled_latencies: list[float] = []
+    spatial_latencies: list[float] = []
+
+    full_detection_counts: list[int] = []
+    tiled_detection_counts: list[int] = []
+    spatial_detection_counts: list[int] = []
+
+    full_confidences: list[float] = []
+    tiled_confidences: list[float] = []
+    spatial_confidences: list[float] = []
+
+    tiled_recovery_scores: list[float] = []
+    spatial_recovery_scores: list[float] = []
+    spatial_coverage_scores: list[float] = []
+    selected_block_counts: list[int] = []
+
+    all_decision_rows: list[dict[str, Any]] = []
+    all_detection_rows: list[dict[str, Any]] = []
+
+    for frame_id, frame in enumerate(frames, start=1):
+        # Full-frame YOLO reference.
+        full_results, full_latency = predict_timed(
+            model=model,
+            source=frame,
+            device=device,
+            imgsz=args.reference_imgsz,
+            conf=args.conf,
+        )
+
+        full_detections = extract_detections(
+            results=full_results,
+            frame_id=frame_id,
+            strategy="full_frame_reference",
+        )
+
+        # Uniform tiled baseline: run YOLO on all 9 blocks.
+        tiled_latency, tiled_detections = run_uniform_tiled(
+            model=model,
+            frame=frame,
+            previous_gray=previous_gray,
+            rows=rows,
+            cols=cols,
+            device=device,
+            imgsz=tile_imgsz,
+            conf=args.conf,
+            frame_id=frame_id,
+        )
+
+        # Spatial DSL tiled: run YOLO only on selected blocks.
+        spatial_latency, spatial_detections, selected_blocks, decision_rows = run_spatial_dsl_tiled(
+            model=model,
+            frame=frame,
+            previous_gray=previous_gray,
+            policy=policy,
+            rows=rows,
+            cols=cols,
+            device=device,
+            imgsz=tile_imgsz,
+            conf=args.conf,
+            frame_id=frame_id,
+        )
+
+        tiled_recovery = compute_detection_recovery(
+            reference_detections=full_detections,
+            spatial_detections=tiled_detections,
+            iou_threshold=args.iou_threshold,
+        )
+
+        spatial_recovery = compute_detection_recovery(
+            reference_detections=full_detections,
+            spatial_detections=spatial_detections,
+            iou_threshold=args.iou_threshold,
+        )
+
+        spatial_coverage = compute_reference_coverage(
+            reference_detections=full_detections,
+            selected_blocks=selected_blocks,
+        )
+
+        full_latencies.append(full_latency)
+        tiled_latencies.append(tiled_latency)
+        spatial_latencies.append(spatial_latency)
+
+        full_detection_counts.append(len(full_detections))
+        tiled_detection_counts.append(len(tiled_detections))
+        spatial_detection_counts.append(len(spatial_detections))
+
+        full_confidences.append(mean_confidence(full_detections))
+        tiled_confidences.append(mean_confidence(tiled_detections))
+        spatial_confidences.append(mean_confidence(spatial_detections))
+
+        tiled_recovery_scores.append(tiled_recovery)
+        spatial_recovery_scores.append(spatial_recovery)
+        spatial_coverage_scores.append(spatial_coverage)
+        selected_block_counts.append(len(selected_blocks))
+
+        all_decision_rows.extend(decision_rows)
+        all_detection_rows.extend(full_detections)
+        all_detection_rows.extend(tiled_detections)
+        all_detection_rows.extend(spatial_detections)
+
+        previous_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    full_avg_latency = mean(full_latencies)
+    tiled_avg_latency = mean(tiled_latencies)
+    spatial_avg_latency = mean(spatial_latencies)
+
+    spatial_vs_tiled_speedup = (
+        (tiled_avg_latency - spatial_avg_latency) / tiled_avg_latency * 100
+        if tiled_avg_latency > 0
+        else 0.0
+    )
+
+    spatial_vs_full_speedup = (
+        (full_avg_latency - spatial_avg_latency) / full_avg_latency * 100
+        if full_avg_latency > 0
+        else 0.0
+    )
+
+    summary = {
+        "source": args.source,
+        "frames": len(frames),
+        "device": device_name,
+        "grid": f"{rows}x{cols}",
+        "reference_imgsz": args.reference_imgsz,
+        "tile_imgsz": tile_imgsz,
+        "full_frame_avg_latency_ms": f"{full_avg_latency:.2f}",
+        "uniform_tiled_avg_latency_ms": f"{tiled_avg_latency:.2f}",
+        "spatial_dsl_tiled_avg_latency_ms": f"{spatial_avg_latency:.2f}",
+        "spatial_vs_uniform_tiled_speedup_percent": f"{spatial_vs_tiled_speedup:.2f}",
+        "spatial_vs_full_frame_speedup_percent": f"{spatial_vs_full_speedup:.2f}",
+        "full_frame_avg_detections": f"{mean(full_detection_counts):.2f}",
+        "uniform_tiled_avg_detections": f"{mean(tiled_detection_counts):.2f}",
+        "spatial_dsl_avg_detections": f"{mean(spatial_detection_counts):.2f}",
+        "full_frame_mean_confidence": f"{mean(full_confidences):.4f}",
+        "uniform_tiled_mean_confidence": f"{mean(tiled_confidences):.4f}",
+        "spatial_dsl_mean_confidence": f"{mean(spatial_confidences):.4f}",
+        "uniform_tiled_detection_recovery": f"{mean(tiled_recovery_scores):.4f}",
+        "spatial_dsl_detection_recovery": f"{mean(spatial_recovery_scores):.4f}",
+        "spatial_reference_coverage": f"{mean(spatial_coverage_scores):.4f}",
+        "spatial_avg_selected_blocks": f"{mean(selected_block_counts):.2f}",
+    }
+
+    write_summary(summary)
+    write_spatial_decisions(all_decision_rows)
+    write_detections(all_detection_rows)
+
+    print("YOLO tiled Spatial DSL experiment complete.")
+    print(f"Source: {args.source}")
+    print(f"Frames evaluated: {len(frames)}")
+    print(f"Device: {device_name}")
+    print(f"Grid: {rows}x{cols}")
+    print(f"Tile image size: {tile_imgsz}")
+    print()
+
+    print("Strategy                       | Avg Latency(ms/frame) | Avg Detections | Mean Confidence")
+    print("-" * 95)
+
+    print(
+        f"{'Full-frame YOLO reference':<30} | "
+        f"{full_avg_latency:>21.2f} | "
+        f"{mean(full_detection_counts):>14.2f} | "
+        f"{mean(full_confidences):.4f}"
+    )
+
+    print(
+        f"{'Uniform tiled YOLO':<30} | "
+        f"{tiled_avg_latency:>21.2f} | "
+        f"{mean(tiled_detection_counts):>14.2f} | "
+        f"{mean(tiled_confidences):.4f}"
+    )
+
+    print(
+        f"{'Spatial DSL tiled YOLO':<30} | "
+        f"{spatial_avg_latency:>21.2f} | "
+        f"{mean(spatial_detection_counts):>14.2f} | "
+        f"{mean(spatial_confidences):.4f}"
+    )
+
+    print()
+    print(f"Spatial vs uniform tiled speedup: {spatial_vs_tiled_speedup:.2f}%")
+    print(f"Spatial vs full-frame speedup:    {spatial_vs_full_speedup:.2f}%")
+    print(f"Average selected blocks/frame:    {mean(selected_block_counts):.2f} of {rows * cols}")
+    print(f"Uniform tiled detection recovery: {mean(tiled_recovery_scores):.4f}")
+    print(f"Spatial DSL detection recovery:   {mean(spatial_recovery_scores):.4f}")
+    print(f"Spatial reference coverage:       {mean(spatial_coverage_scores):.4f}")
+    print()
+    print(f"Summary written to: {SUMMARY_PATH}")
+    print(f"Spatial decisions written to: {DECISIONS_PATH}")
+    print(f"Detections written to: {DETECTIONS_PATH}")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Compare uniform tiled YOLO against Spatial DSL tiled YOLO."
+    )
+
+    parser.add_argument(
+        "--source",
+        default="bus.jpg",
+        help="Image or video path relative to Homework-6.",
+    )
+
+    parser.add_argument(
+        "--frames",
+        type=int,
+        default=50,
+        help="Number of frames to evaluate.",
+    )
+
+    parser.add_argument(
+        "--conf",
+        type=float,
+        default=0.25,
+        help="YOLO confidence threshold.",
+    )
+
+    parser.add_argument(
+        "--reference-imgsz",
+        type=int,
+        default=640,
+        help="Image size for full-frame YOLO reference.",
+    )
+
+    parser.add_argument(
+        "--warmup",
+        type=int,
+        default=3,
+        help="Warm-up predictions before measuring.",
+    )
+
+    parser.add_argument(
+        "--iou-threshold",
+        type=float,
+        default=0.30,
+        help="IoU threshold for matching tiled detections to reference detections.",
+    )
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    run_experiment(args)
+
+
+if __name__ == "__main__":
+    main()

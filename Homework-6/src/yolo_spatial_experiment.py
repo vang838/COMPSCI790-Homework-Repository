@@ -17,8 +17,8 @@ from src.spatial_runtime import load_policy, select_mode
 BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 
-DEFAULT_MODEL_PATH = BASE_DIR / "yolo11n.pt"
-DEFAULT_IMAGE_PATH = BASE_DIR / "bus.jpg"
+DEFAULT_MODEL_PATH = BASE_DIR / "models/yolo11n.pt"
+DEFAULT_IMAGE_PATH = BASE_DIR / "images/bus.jpg"
 DEFAULT_IMAGE_URL = "https://ultralytics.com/images/bus.jpg"
 DEFAULT_POLICY_PATH = BASE_DIR / "policies" / "yolo_spatial_policy.json"
 

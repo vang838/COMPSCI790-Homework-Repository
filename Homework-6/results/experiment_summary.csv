@@ -1,5 +1,0 @@
-strategy,avg_latency_ms_per_frame,avg_quality
-Fixed fast,20.00,0.70
-Fixed balanced,45.00,0.84
-Fixed accurate,90.00,0.92
-Adaptive DSL,54.30,0.83
