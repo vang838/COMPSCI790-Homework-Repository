@@ -11,8 +11,8 @@ from ultralytics import YOLO
 BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 
-MODEL_PATH = BASE_DIR / "yolo11n.pt"
-IMAGE_PATH = BASE_DIR / "bus.jpg"
+MODEL_PATH = BASE_DIR / "models/yolo11n.pt"
+IMAGE_PATH = BASE_DIR / "images/bus.jpg"
 
 IMAGE_URL = "https://ultralytics.com/images/bus.jpg"
 
