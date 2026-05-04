@@ -1,0 +1,37 @@
+{
+  "description": "Minimal real YOLO spatial DSL policy. The DSL selects important image blocks for detector inference and skips low-importance blocks.",
+
+  "frame_grid": {
+    "rows": 3,
+    "cols": 3
+  },
+
+  "latency_budget_ms": 40,
+
+  "modes": {
+    "skip": {
+      "imgsz": 0
+    },
+    "detect": {
+      "imgsz": 960
+    }
+  },
+
+  "rules": [
+    {
+      "name": "high_importance_detect",
+      "condition": "importance >= 0.55",
+      "mode": "detect"
+    },
+    {
+      "name": "motion_region_detect",
+      "condition": "motion >= 0.35 and importance >= 0.35",
+      "mode": "detect"
+    },
+    {
+      "name": "default_skip",
+      "condition": "true",
+      "mode": "skip"
+    }
+  ]
+}

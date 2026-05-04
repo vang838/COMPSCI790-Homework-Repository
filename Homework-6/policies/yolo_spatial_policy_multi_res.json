@@ -1,0 +1,51 @@
+{
+  "description": "Multi-resolution YOLO spatial DSL policy. Important regions use higher-resolution detection, medium regions use cheaper detection, and low-value regions are skipped.",
+
+  "frame_grid": {
+    "rows": 3,
+    "cols": 3
+  },
+
+  "modes": {
+    "skip": {
+      "imgsz": 0
+    },
+    "detect_low": {
+      "imgsz": 320
+    },
+    "detect_medium": {
+      "imgsz": 640
+    },
+    "detect_high": {
+      "imgsz": 960
+    }
+  },
+
+  "rules": [
+    {
+      "name": "very_high_importance_high_res",
+      "condition": "importance >= 0.80",
+      "mode": "detect_high"
+    },
+    {
+      "name": "high_motion_medium_res",
+      "condition": "motion >= 0.60 and importance >= 0.45",
+      "mode": "detect_medium"
+    },
+    {
+      "name": "medium_importance_medium_res",
+      "condition": "importance >= 0.55",
+      "mode": "detect_medium"
+    },
+    {
+      "name": "low_importance_low_res",
+      "condition": "importance >= 0.40",
+      "mode": "detect_low"
+    },
+    {
+      "name": "default_skip",
+      "condition": "true",
+      "mode": "skip"
+    }
+  ]
+}

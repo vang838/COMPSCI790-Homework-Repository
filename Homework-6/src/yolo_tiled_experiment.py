@@ -164,6 +164,7 @@ def run_spatial_dsl_tiled(
     )
 
     selected_blocks: list[dict[str, Any]] = []
+    selected_blocks_by_imgsz: dict[int, list[dict[str, Any]]] = {}
     decision_rows: list[dict[str, Any]] = []
 
     for block in blocks:
@@ -189,27 +190,42 @@ def run_spatial_dsl_tiled(
             }
         )
 
-        if mode != "skip":
-            selected_blocks.append(block)
+        if mode == "skip":
+            continue
+
+        mode_config = policy["modes"][mode]
+        block_imgsz = int(mode_config["imgsz"])
+
+        if block_imgsz <= 0:
+            continue
+
+        selected_blocks.append(block)
+
+        if block_imgsz not in selected_blocks_by_imgsz:
+            selected_blocks_by_imgsz[block_imgsz] = []
+
+        selected_blocks_by_imgsz[block_imgsz].append(block)
 
     detections: list[dict[str, Any]] = []
 
-    if selected_blocks:
-        crops = [block["crop"] for block in selected_blocks]
+    for block_imgsz, blocks_for_size in selected_blocks_by_imgsz.items():
+        crops = [block["crop"] for block in blocks_for_size]
 
         results, _ = predict_timed(
             model=model,
             source=crops,
             device=device,
-            imgsz=imgsz,
+            imgsz=block_imgsz,
             conf=conf,
         )
 
-        detections = extract_detections(
-            results=results,
-            frame_id=frame_id,
-            strategy="spatial_dsl_selected_blocks",
-            block_meta=selected_blocks,
+        detections.extend(
+            extract_detections(
+                results=results,
+                frame_id=frame_id,
+                strategy=f"spatial_dsl_selected_blocks_{block_imgsz}",
+                block_meta=blocks_for_size,
+            )
         )
 
     cuda_sync(device)
@@ -227,11 +243,19 @@ def run_experiment(args: argparse.Namespace) -> None:
 
     source_path = BASE_DIR / args.source
 
-    policy = load_policy(DEFAULT_POLICY_PATH)
+    policy = load_policy(BASE_DIR / args.policy)
     rows = int(policy["frame_grid"]["rows"])
     cols = int(policy["frame_grid"]["cols"])
 
-    tile_imgsz = int(policy["modes"]["detect"]["imgsz"])
+    detect_imgsz_values = sorted(
+        {
+            int(mode_config["imgsz"])
+            for mode_name, mode_config in policy["modes"].items()
+            if mode_name != "skip" and int(mode_config["imgsz"]) > 0
+        }
+    )
+
+    tile_imgsz = detect_imgsz_values[0] if detect_imgsz_values else 0
 
     device = get_device()
     device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
@@ -377,7 +401,7 @@ def run_experiment(args: argparse.Namespace) -> None:
         "device": device_name,
         "grid": f"{rows}x{cols}",
         "reference_imgsz": args.reference_imgsz,
-        "tile_imgsz": tile_imgsz,
+        "tile_imgsz": "/".join(str(value) for value in detect_imgsz_values),
         "full_frame_avg_latency_ms": f"{full_avg_latency:.2f}",
         "uniform_tiled_avg_latency_ms": f"{tiled_avg_latency:.2f}",
         "spatial_dsl_tiled_avg_latency_ms": f"{spatial_avg_latency:.2f}",
@@ -404,7 +428,7 @@ def run_experiment(args: argparse.Namespace) -> None:
     print(f"Frames evaluated: {len(frames)}")
     print(f"Device: {device_name}")
     print(f"Grid: {rows}x{cols}")
-    print(f"Tile image size: {tile_imgsz}")
+    print(f"Tile image sizes: {detect_imgsz_values}")
     print()
 
     print("Strategy                       | Avg Latency(ms/frame) | Avg Detections | Mean Confidence")
@@ -488,6 +512,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.30,
         help="IoU threshold for matching tiled detections to reference detections.",
+    )
+    
+    parser.add_argument(
+        "--policy",
+        default="policies/yolo_spatial_policy.json",
+        help="Policy path relative to Homework-6.",
     )
 
     return parser.parse_args()
