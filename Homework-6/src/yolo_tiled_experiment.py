@@ -234,6 +234,79 @@ def run_spatial_dsl_tiled(
     latency_ms = (end - start) * 1000
     return latency_ms, detections, selected_blocks, decision_rows
 
+def make_block_id(row: int, col: int) -> str:
+    return f"r{row}c{col}"
+
+
+def initialize_feedback_scores(rows: int, cols: int) -> dict[str, float]:
+    return {
+        make_block_id(row, col): 0.0
+        for row in range(rows)
+        for col in range(cols)
+    }
+
+
+def decay_feedback_scores(
+    feedback_scores: dict[str, float],
+    decay: float = 0.70,
+) -> None:
+    for block_id in feedback_scores:
+        feedback_scores[block_id] *= decay
+
+        if feedback_scores[block_id] < 0.05:
+            feedback_scores[block_id] = 0.0
+
+
+def detection_center(detection: dict[str, Any]) -> tuple[float, float]:
+    center_x = (float(detection["x1"]) + float(detection["x2"])) / 2.0
+    center_y = (float(detection["y1"]) + float(detection["y2"])) / 2.0
+    return center_x, center_y
+
+
+def block_id_for_point(
+    x: float,
+    y: float,
+    frame_width: int,
+    frame_height: int,
+    rows: int,
+    cols: int,
+) -> str:
+    col = min(cols - 1, max(0, int(x / frame_width * cols)))
+    row = min(rows - 1, max(0, int(y / frame_height * rows)))
+    return make_block_id(row, col)
+
+
+def update_feedback_from_detections(
+    feedback_scores: dict[str, float],
+    detections: list[dict[str, Any]],
+    frame_width: int,
+    frame_height: int,
+    rows: int,
+    cols: int,
+    boost: float = 1.0,
+) -> None:
+    for detection in detections:
+        center_x, center_y = detection_center(detection)
+
+        block_id = block_id_for_point(
+            x=center_x,
+            y=center_y,
+            frame_width=frame_width,
+            frame_height=frame_height,
+            rows=rows,
+            cols=cols,
+        )
+
+        feedback_scores[block_id] = max(feedback_scores[block_id], boost)
+
+
+def attach_feedback_to_blocks(
+    blocks: list[dict[str, Any]],
+    feedback_scores: dict[str, float],
+) -> None:
+    for block in blocks:
+        block_id = str(block["block_id"])
+        block["feedback_score"] = round(feedback_scores.get(block_id, 0.0), 4)
 
 def run_experiment(args: argparse.Namespace) -> None:
     RESULTS_DIR.mkdir(exist_ok=True)
