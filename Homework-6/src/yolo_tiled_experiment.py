@@ -58,6 +58,7 @@ def write_spatial_decisions(rows: list[dict[str, Any]]) -> None:
             "y1",
             "x2",
             "y2",
+            "feedback_score",
         ]
 
         writer = csv.DictWriter(file, fieldnames=fieldnames)
