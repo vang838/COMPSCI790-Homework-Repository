@@ -1,0 +1,23 @@
+YOLO tiled Spatial DSL experiment complete.
+Source: videos/dashcam_footage.mp4
+Frames evaluated: 50
+Device: NVIDIA GeForce RTX 3090
+Grid: 3x3
+Tile image sizes: [320]
+
+Strategy                       | Avg Latency(ms/frame) | Avg Detections | Mean Confidence
+-----------------------------------------------------------------------------------------------
+Full-frame YOLO reference      |                 17.37 |           3.50 | 0.4852
+Uniform tiled YOLO             |                 47.90 |           8.72 | 0.4839
+Spatial DSL tiled YOLO         |                 44.51 |           6.62 | 0.5217
+
+Spatial vs uniform tiled speedup: 7.09%
+Spatial vs full-frame speedup:    -156.28%
+Average selected blocks/frame:    3.26 of 9
+Uniform tiled detection recovery: 0.8770
+Spatial DSL detection recovery:   0.7741
+Spatial reference coverage:       0.8548
+
+Summary written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_tiled_summary.csv
+Spatial decisions written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_tiled_spatial_decisions.csv
+Detections written to: /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_tiled_detections.csv

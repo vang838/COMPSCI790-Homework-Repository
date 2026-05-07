@@ -421,6 +421,20 @@ def run_experiment(args: argparse.Namespace) -> None:
             frame_id=frame_id,
             feedback_scores=feedback_scores if args.use_feedback else None,
         )
+        
+        if args.use_feedback:
+            decay_feedback_scores(feedback_scores, decay=args.feedback_decay)
+
+            frame_height, frame_width = frame.shape[:2]
+
+            update_feedback_from_detections(
+                feedback_scores=feedback_scores,
+                detections=spatial_detections,
+                frame_width=frame_width,
+                frame_height=frame_height,
+                rows=rows,
+                cols=cols,
+            )
 
         tiled_recovery = compute_detection_recovery(
             reference_detections=full_detections,
@@ -478,20 +492,6 @@ def run_experiment(args: argparse.Namespace) -> None:
         if full_avg_latency > 0
         else 0.0
     )
-    
-    if args.use_feedback:
-        decay_feedback_scores(feedback_scores, decay=args.feedback_decay)
-
-        frame_height, frame_width = frame.shape[:2]
-
-        update_feedback_from_detections(
-            feedback_scores=feedback_scores,
-            detections=spatial_detections,
-            frame_width=frame_width,
-            frame_height=frame_height,
-            rows=rows,
-            cols=cols,
-        )
 
     summary = {
         "source": args.source,
