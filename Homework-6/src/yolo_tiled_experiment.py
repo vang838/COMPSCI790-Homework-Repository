@@ -153,7 +153,8 @@ def run_spatial_dsl_tiled(
     imgsz: int,
     conf: float,
     frame_id: int,
-) -> tuple[float, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    feedback_scores: dict[str, float] | None = None,
+) -> tuple[float, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], ]:
     start = time.perf_counter()
 
     blocks = split_frame_into_blocks(
@@ -162,6 +163,12 @@ def run_spatial_dsl_tiled(
         rows=rows,
         cols=cols,
     )
+    
+    if feedback_scores is not None:
+        attach_feedback_to_blocks(blocks, feedback_scores)
+    else:
+        for block in blocks:
+            block["feedback_score"] = 0.0
 
     selected_blocks: list[dict[str, Any]] = []
     selected_blocks_by_imgsz: dict[int, list[dict[str, Any]]] = {}
@@ -187,6 +194,7 @@ def run_spatial_dsl_tiled(
                 "y1": block["y1"],
                 "x2": block["x2"],
                 "y2": block["y2"],
+                "feedback_score": block["feedback_score"],
             }
         )
 
