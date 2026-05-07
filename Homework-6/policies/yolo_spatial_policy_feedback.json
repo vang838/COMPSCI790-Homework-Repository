@@ -1,0 +1,40 @@
+{
+  "description": "YOLO feedback spatial policy. Tiles with recent YOLO detections receive temporary priority, while motion and importance still select newly active regions.",
+
+  "frame_grid": {
+    "rows": 3,
+    "cols": 3
+  },
+
+  "modes": {
+    "skip": {
+      "imgsz": 0
+    },
+    "detect": {
+      "imgsz": 320
+    }
+  },
+
+  "rules": [
+    {
+      "name": "recent_detection_keep_alive",
+      "condition": "feedback_score >= 0.40",
+      "mode": "detect"
+    },
+    {
+      "name": "high_importance_detect",
+      "condition": "importance >= 0.55",
+      "mode": "detect"
+    },
+    {
+      "name": "motion_region_detect",
+      "condition": "motion >= 0.35 and importance >= 0.35",
+      "mode": "detect"
+    },
+    {
+      "name": "default_skip",
+      "condition": "true",
+      "mode": "skip"
+    }
+  ]
+}
