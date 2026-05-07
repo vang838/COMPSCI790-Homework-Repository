@@ -601,6 +601,19 @@ def parse_args() -> argparse.Namespace:
         default="policies/yolo_spatial_policy.json",
         help="Policy path relative to Homework-6.",
     )
+    
+    parser.add_argument(
+        "--use-feedback",
+        action="store_true",
+        help="Enable previous-detection feedback for tile selection.",
+    )
+
+    parser.add_argument(
+        "--feedback-decay",
+        type=float,
+        default=0.70,
+        help="Decay factor for feedback scores between frames.",
+    )
 
     return parser.parse_args()
 
