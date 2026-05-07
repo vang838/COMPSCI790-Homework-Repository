@@ -328,6 +328,7 @@ def run_experiment(args: argparse.Namespace) -> None:
     policy = load_policy(BASE_DIR / args.policy)
     rows = int(policy["frame_grid"]["rows"])
     cols = int(policy["frame_grid"]["cols"])
+    feedback_scores = initialize_feedback_scores(rows, cols)
 
     detect_imgsz_values = sorted(
         {
@@ -418,6 +419,7 @@ def run_experiment(args: argparse.Namespace) -> None:
             imgsz=tile_imgsz,
             conf=args.conf,
             frame_id=frame_id,
+            feedback_scores=feedback_scores if args.use_feedback else None,
         )
 
         tiled_recovery = compute_detection_recovery(
