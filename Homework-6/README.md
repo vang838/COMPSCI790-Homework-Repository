@@ -133,7 +133,20 @@ python -m pytest tests
 Expected result:
 
 ```text
-All policy and spatial runtime tests should pass.
+============================================================ test session starts =============================================================
+platform linux -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/matthew/COMPSCI790-Homework-Repository/Homework-6
+collected 46 items                                                                                                                           
+
+tests/test_policy.py ........                                                                                                          [ 17%]
+tests/test_policy_edge_cases.py ..........                                                                                             [ 39%]
+tests/test_spatial_baselines.py ....                                                                                                   [ 47%]
+tests/test_spatial_policy.py ......                                                                                                    [ 60%]
+tests/test_spatial_runtime_edge_cases.py ......                                                                                        [ 73%]
+tests/test_yolo_feedback_helpers.py .....                                                                                              [ 84%]
+tests/test_yolo_metric_helpers.py .......                                                                                              [100%]
+
+============================================================= 46 passed in 2.33s =============================================================
 ```
 
 ## Running the Basic Policy Interpreter
