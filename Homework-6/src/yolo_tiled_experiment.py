@@ -69,28 +69,85 @@ def infer_output_dir(args: argparse.Namespace) -> Path:
 
 
 def write_summary(summary: dict[str, Any], summary_path: Path) -> None:
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+
     with summary_path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=list(summary.keys()))
+        writer.writeheader()
+        writer.writerow(summary)
 
 
 def write_spatial_decisions(rows: list[dict[str, Any]], decisions_path: Path) -> None:
+    decisions_path.parent.mkdir(parents=True, exist_ok=True)
+
     with decisions_path.open("w", encoding="utf-8", newline="") as file:
+        fieldnames = [
+            "frame_id",
+            "block_id",
+            "row",
+            "col",
+            "importance",
+            "motion",
+            "edge",
+            "selected_mode",
+            "rule_applied",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+            "feedback_score",
+        ]
+
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
-def write_detections(rows: list[dict[str, Any]]) -> None:
-    with DETECTIONS_PATH.open("w", encoding="utf-8", newline="") as file:
+def write_detections(rows: list[dict[str, Any]], detections_path: Path) -> None:
+    detections_path.parent.mkdir(parents=True, exist_ok=True)
 
+    with detections_path.open("w", encoding="utf-8", newline="") as file:
+        fieldnames = [
+            "frame_id",
+            "strategy",
+            "block_id",
+            "class_id",
+            "confidence",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+        ]
+
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for row in rows:
+            writer.writerow(
+                {
+                    "frame_id": row["frame_id"],
+                    "strategy": row["strategy"],
+                    "block_id": row["block_id"],
+                    "class_id": row["class_id"],
+                    "confidence": f"{float(row['confidence']):.4f}",
+                    "x1": f"{float(row['x1']):.2f}",
+                    "y1": f"{float(row['y1']):.2f}",
+                    "x2": f"{float(row['x2']):.2f}",
+                    "y2": f"{float(row['y2']):.2f}",
+                }
+            )
 
 def run_uniform_tiled(
-    model: YOLO,
-    frame: np.ndarray,
-    previous_gray: np.ndarray | None,
-    rows: int,
-    cols: int,
-    device: int | str,
-    imgsz: int,
-    conf: float,
-    frame_id: int,
-) -> tuple[float, list[dict[str, Any]]]:
+        model: YOLO,
+        frame: np.ndarray,
+        previous_gray: np.ndarray | None,
+        rows: int,
+        cols: int,
+        device: int | str,
+        imgsz: int,
+        conf: float,
+        frame_id: int,
+    ) -> tuple[float, list[dict[str, Any]]]:
     start = time.perf_counter()
 
     blocks = split_frame_into_blocks(

@@ -1,2 +1,2 @@
 frames,source,device,full_frame_avg_latency_ms,spatial_dsl_avg_latency_ms,latency_speedup_percent,full_frame_avg_detections,spatial_dsl_avg_detections,spatial_avg_selected_blocks,spatial_reference_coverage,spatial_detection_recovery,full_frame_mean_confidence,spatial_mean_confidence
-50,videos/sample.mp4,NVIDIA GeForce RTX 3090,13.76,52.21,-279.38,6.80,7.58,3.72,0.8592,0.6320,0.4390,0.5738
+50,videos/dashcam_footage.mp4,NVIDIA GeForce RTX 3090,19.50,54.11,-177.42,3.50,6.12,2.82,0.8508,0.7658,0.4852,0.5325

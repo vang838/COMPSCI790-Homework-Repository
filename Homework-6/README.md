@@ -80,14 +80,14 @@ Homework-6/
 
 | File | Purpose |
 |---|---|
-| `src/run_policy.py` | Loads and evaluates JSON policy rules. |
-| `src/experiment.py` | Runs the original policy experiment. |
-| `src/spatial_runtime.py` | Contains shared spatial tiling/runtime logic. |
+| `src/run_policy.py` | Loads and evaluates the basic JSON policy in `policies/policy.json`. |
+| `src/experiment.py` | Runs the original policy experiment using generated frame metadata. |
+| `src/spatial_runtime.py` | Contains shared spatial policy, tiling, budget, and baseline logic. |
 | `src/spatial_experiment.py` | Runs the synthetic Remix-style spatial policy experiment. |
 | `src/yolo_image_benchmark.py` | Benchmarks YOLO11n on image input. |
-| `src/yolo_live_demo.py` | Runs a live YOLO demonstration. |
-| `src/yolo_feedback_live_demo.py` | Runs a live YOLO demonstration with feedback memory. |
-| `src/yolo_spatial_experiment.py` | Runs YOLO with spatial policy selection. |
+| `src/yolo_live_demo.py` | Runs or saves a live-style YOLO spatial policy demo. |
+| `src/yolo_feedback_live_demo.py` | Runs or saves a live-style YOLO demo with feedback memory. |
+| `src/yolo_spatial_experiment.py` | Runs a minimal YOLO spatial policy experiment. |
 | `src/yolo_tiled_experiment.py` | Runs tiled YOLO experiments comparing full-frame, uniform tiled, and Spatial Policy tiled inference. |
 
 ## Dependencies
@@ -136,77 +136,65 @@ Expected result:
 All policy and spatial runtime tests should pass.
 ```
 
-## Running Policies with the Policy Interpreter
+## Running the Basic Policy Interpreter
 
-The policy interpreter is located at:
+The basic policy interpreter is located at:
 
 ```text
 src/run_policy.py
 ```
 
-Use this file when you want to test a JSON policy directly without running the full YOLO experiment.
+This script tests the small JSON policy in:
 
-### 1. Check the interpreter options
+```text
+policies/policy.json
+```
 
-From the `Homework-6/` directory, run:
+It evaluates generated frame metadata with fields such as `motion` and `queue`, then selects one of the modes defined in the policy file.
+
+Check the interpreter options:
 
 ```bash
 python -m src.run_policy --help
 ```
 
-This shows the command-line arguments supported by the interpreter.
-
-### 2. Run the basic policy
+Run the default policy:
 
 ```bash
 python -m src.run_policy --policy policies/policy.json
 ```
 
-The basic policy is useful for checking that the interpreter can load and evaluate a JSON policy file.
-
-### 3. Run the synthetic spatial policy
+Validate the policy JSON syntax:
 
 ```bash
-python -m src.run_policy --policy policies/spatial_policy.json
+python -m json.tool policies/policy.json
 ```
 
-This policy is used for the synthetic spatial experiment where each tile is assigned a compute mode such as `skip`, `fast`, `balanced`, or `accurate`.
+Expected behavior:
 
-### 4. Run a YOLO spatial policy
+```text
+Frame-level policy decisions are printed to the terminal.
+A baseline comparison is printed for fixed fast, fixed balanced, fixed accurate, and Adaptive DSL modes.
+```
+
+Note: `src/run_policy.py` is only for the basic policy interpreter. The spatial and YOLO policies should be run through the experiment scripts below.
+
+## Running the Original Generated-Frame Experiment
+
+Run:
 
 ```bash
-python -m src.run_policy --policy policies/yolo_spatial_policy.json
+python -m src.experiment
 ```
 
-This policy is used by the tiled YOLO experiments to decide which tiles should receive YOLO inference.
+Expected output files:
 
-### 5. Run a feedback-memory policy
-
-```bash
-python -m src.run_policy --policy policies/yolo_spatial_policy_feedback.json
+```text
+results/experiment/frame_decisions.csv
+results/experiment/experiment_summary.csv
 ```
 
-The feedback-memory policy uses previous detections to influence future tile selections.
-
-### 6. Run the strict feedback-memory policy
-
-```bash
-python -m src.run_policy --policy policies/yolo_spatial_policy_feedback_strict.json
-```
-
-The strict feedback policy uses tighter selection behavior to test the tradeoff between selecting fewer tiles and preserving detection recovery.
-
-### 7. Run resolution-specific policies
-
-```bash
-python -m src.run_policy --policy policies/yolo_spatial_policy_640.json
-python -m src.run_policy --policy policies/yolo_spatial_policy_960.json
-python -m src.run_policy --policy policies/yolo_spatial_policy_multi_res.json
-```
-
-These policies are used to test different resolution-related policy settings.
-
-> Note: If your local version of `src/run_policy.py` uses different command-line argument names, run `python -m src.run_policy --help` and use the argument names shown there. The important input is the JSON file inside the `policies/` directory.
+This experiment uses generated frame metadata and the basic adaptive policy from `policies/policy.json`.
 
 ## Reproducing the Synthetic Spatial Experiment
 
@@ -223,10 +211,14 @@ This experiment simulates a Remix-style spatial adaptive inference workload. Eac
 - `balanced`
 - `accurate`
 
-Expected results are written under:
+Expected output files:
 
 ```text
-results/spatial/
+results/spatial/spatial_frame_decisions.csv
+results/spatial/spatial_experiment_summary.csv
+results/spatial/spatial_mode_distribution.csv
+results/spatial/spatial_multiseed_summary.csv
+results/spatial/spatial_budget_sweep.csv
 ```
 
 Expected summary from the final report:
@@ -248,10 +240,27 @@ python -m src.yolo_image_benchmark
 
 This benchmarks YOLO11n on image input.
 
-Expected results are written under:
+Expected output files:
 
 ```text
-results/yolo/
+results/yolo/yolo_image_benchmark.txt
+results/yolo/yolo_image_benchmark.csv
+```
+
+## Running the Minimal YOLO Spatial Experiment
+
+Run:
+
+```bash
+python -m src.yolo_spatial_experiment   --source videos/dashcam_footage.mp4   --frames 50
+```
+
+Expected output files:
+
+```text
+results/yolo_spatial/yolo_spatial_summary.csv
+results/yolo_spatial/yolo_spatial_frame_decisions.csv
+results/yolo_spatial/yolo_spatial_detections.csv
 ```
 
 ## Running the Original Tiled YOLO Experiment
@@ -259,10 +268,7 @@ results/yolo/
 Run:
 
 ```bash
-python -m src.yolo_tiled_experiment \
-  --source videos/dashcam_footage.mp4 \
-  --frames 50 \
-  --policy policies/yolo_spatial_policy.json
+python -m src.yolo_tiled_experiment   --source videos/dashcam_footage.mp4   --frames 50   --policy policies/yolo_spatial_policy.json
 ```
 
 This compares:
@@ -271,99 +277,164 @@ This compares:
 - Uniform tiled YOLO
 - Spatial Policy tiled YOLO
 
-Expected output directory:
+Expected output files:
 
 ```text
-results/dashcam_original/
+results/dashcam_original/yolo_tiled_summary.csv
+results/dashcam_original/yolo_tiled_spatial_decisions.csv
+results/dashcam_original/yolo_tiled_detections.csv
 ```
 
-## Running the Feedback-Memory Policy in the Tiled YOLO Experiment
+## Running the Feedback-Memory Tiled YOLO Experiment
 
 Run:
 
 ```bash
-python -m src.yolo_tiled_experiment \
-  --source videos/dashcam_footage.mp4 \
-  --frames 50 \
-  --policy policies/yolo_spatial_policy_feedback.json
+python -m src.yolo_tiled_experiment   --source videos/dashcam_footage.mp4   --frames 50   --policy policies/yolo_spatial_policy_feedback.json   --use-feedback
 ```
 
-Expected output directory:
+Expected output files:
 
 ```text
-results/dashcam_feedback/
+results/dashcam_feedback/yolo_tiled_summary.csv
+results/dashcam_feedback/yolo_tiled_spatial_decisions.csv
+results/dashcam_feedback/yolo_tiled_detections.csv
 ```
 
 The feedback-memory policy uses previous YOLO detections to influence future tile selection. If a tile recently produced detections, its feedback score increases. If it stops producing detections, the feedback score decays over time.
 
-Expected feedback-memory result from the final report:
+Expected qualitative result:
 
 ```text
-Original Spatial Policy:
-Selected tiles/frame: 2.82 / 9
-Average latency: 50.11 ms/frame
-Detection recovery: 76.58%
-Reference coverage: 85.08%
-
-Feedback-Memory Spatial Policy:
-Selected tiles/frame: 3.26 / 9
-Average latency: 44.51 ms/frame
-Detection recovery: 77.41%
-Reference coverage: 85.48%
+The feedback-memory policy should select recently active tiles more often than the stateless policy.
+Detection recovery and reference coverage should remain close to or slightly above the original Spatial Policy.
+Latency may vary between runs because tiled YOLO includes preprocessing, batching, GPU scheduling, and remapping overhead.
 ```
 
-## Running the Strict Feedback Policy
+## Running the Strict Feedback-Memory Tiled YOLO Experiment
 
 Run:
 
 ```bash
-python -m src.yolo_tiled_experiment \
-  --source videos/dashcam_footage.mp4 \
-  --frames 50 \
-  --policy policies/yolo_spatial_policy_feedback_strict.json
+python -m src.yolo_tiled_experiment   --source videos/dashcam_footage.mp4   --frames 50   --policy policies/yolo_spatial_policy_feedback_strict.json   --use-feedback
 ```
 
-Expected output directory:
+Expected output files:
 
 ```text
-results/dashcam_feedback_strict/
+results/dashcam_feedback_strict/yolo_tiled_summary.csv
+results/dashcam_feedback_strict/yolo_tiled_spatial_decisions.csv
+results/dashcam_feedback_strict/yolo_tiled_detections.csv
 ```
+
+This run uses stricter current-frame thresholds. It usually selects fewer tiles than the regular feedback policy, but detection recovery may decrease.
+
+## Running a Strict Policy Without Feedback
+
+Run:
+
+```bash
+python -m src.yolo_tiled_experiment   --source videos/dashcam_footage.mp4   --frames 50   --policy policies/yolo_spatial_policy_feedback_strict.json
+```
+
+Expected output files:
+
+```text
+results/dashcam_strict_no_feedback/yolo_tiled_summary.csv
+results/dashcam_strict_no_feedback/yolo_tiled_spatial_decisions.csv
+results/dashcam_strict_no_feedback/yolo_tiled_detections.csv
+```
+
+This run uses the strict policy file but does not enable feedback state. It is useful as an ablation against the feedback-memory run.
 
 ## Running Multi-Resolution Policies
 
 Example using the 640 policy:
 
 ```bash
-python -m src.yolo_tiled_experiment \
-  --source videos/parking_lot_footage.mp4 \
-  --frames 50 \
-  --policy policies/yolo_spatial_policy_640.json
+python -m src.yolo_tiled_experiment   --source videos/parking_lot_footage.mp4   --frames 50   --policy policies/yolo_spatial_policy_640.json
+```
+
+Expected output files:
+
+```text
+results/yolo_tiled_sample2_640/yolo_tiled_summary.csv
+results/yolo_tiled_sample2_640/yolo_tiled_spatial_decisions.csv
+results/yolo_tiled_sample2_640/yolo_tiled_detections.csv
 ```
 
 Example using the 960 policy:
 
 ```bash
-python -m src.yolo_tiled_experiment \
-  --source videos/parking_lot_footage.mp4 \
-  --frames 50 \
-  --policy policies/yolo_spatial_policy_960.json
+python -m src.yolo_tiled_experiment   --source videos/parking_lot_footage.mp4   --frames 50   --policy policies/yolo_spatial_policy_960.json
+```
+
+Expected output files:
+
+```text
+results/yolo_tiled_sample2_960/yolo_tiled_summary.csv
+results/yolo_tiled_sample2_960/yolo_tiled_spatial_decisions.csv
+results/yolo_tiled_sample2_960/yolo_tiled_detections.csv
 ```
 
 Example using the multi-resolution policy:
 
 ```bash
-python -m src.yolo_tiled_experiment \
-  --source videos/parking_lot_footage.mp4 \
-  --frames 50 \
-  --policy policies/yolo_spatial_policy_multi_res.json
+python -m src.yolo_tiled_experiment   --source videos/parking_lot_footage.mp4   --frames 50   --policy policies/yolo_spatial_policy_multi_res.json
 ```
 
-Expected output directories include:
+Expected output files:
 
 ```text
+results/yolo_tiled_sample2_multi_res/yolo_tiled_summary.csv
+results/yolo_tiled_sample2_multi_res/yolo_tiled_spatial_decisions.csv
+results/yolo_tiled_sample2_multi_res/yolo_tiled_detections.csv
+```
+
+## Running Live Demo Scripts
+
+Run the non-feedback live demo:
+
+```bash
+python -m src.yolo_live_demo   --source videos/parking_lot_footage.mp4   --frames 100   --policy policies/yolo_spatial_policy.json   --save results/live_demo/yolo_live_demo_sample2.mp4
+```
+
+Run the feedback-memory live demo:
+
+```bash
+python -m src.yolo_feedback_live_demo   --source videos/dashcam_footage.mp4   --frames 100   --policy policies/yolo_spatial_policy_feedback.json   --save results/live_demo/dashcam_feedback_demo.mp4
+```
+
+Expected output files:
+
+```text
+results/live_demo/yolo_live_demo_sample2.mp4
+results/live_demo/dashcam_feedback_demo.mp4
+```
+
+## Verifying Result Output Locations
+
+After running the experiments, verify that result files are grouped by directory:
+
+```bash
+find results -maxdepth 2 -type f | sort
+```
+
+Expected directories include:
+
+```text
+results/experiment/
+results/spatial/
+results/yolo/
+results/yolo_spatial/
+results/dashcam_original/
+results/dashcam_feedback/
+results/dashcam_feedback_strict/
+results/dashcam_strict_no_feedback/
 results/yolo_tiled_sample2_640/
 results/yolo_tiled_sample2_960/
 results/yolo_tiled_sample2_multi_res/
+results/live_demo/
 ```
 
 ## Expected Outputs
@@ -378,7 +449,7 @@ Depending on the experiment, outputs may include:
 | Decision files | Per-frame tile-selection decisions from the Spatial Policy. |
 | Detection files | YOLO detections remapped from tile coordinates to full-frame coordinates. |
 | Benchmark files | YOLO image or video benchmark measurements. |
-| Demo outputs | Outputs from live or feedback-memory demo runs. |
+| Demo outputs | Annotated demo videos or text outputs from live-style runs. |
 
 ## Notes on Results
 
