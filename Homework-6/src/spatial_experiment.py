@@ -15,6 +15,7 @@ from src.spatial_runtime import (
 )
 
 
+BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 OUTPUT_DIR = RESULTS_DIR / "spatial"
 
