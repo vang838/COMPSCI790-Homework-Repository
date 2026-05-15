@@ -30,73 +30,54 @@ from src.yolo_spatial_experiment import (
 )
 
 
-SUMMARY_PATH = RESULTS_DIR / "yolo_tiled_summary.csv"
-DECISIONS_PATH = RESULTS_DIR / "yolo_tiled_spatial_decisions.csv"
-DETECTIONS_PATH = RESULTS_DIR / "yolo_tiled_detections.csv"
+def infer_output_dir(args: argparse.Namespace) -> Path:
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+        return output_dir if output_dir.is_absolute() else BASE_DIR / output_dir
+
+    source_stem = Path(args.source).stem.lower()
+    policy_stem = Path(args.policy).stem.lower()
+
+    if "dashcam" in source_stem:
+        if args.use_feedback and "feedback_strict" in policy_stem:
+            return RESULTS_DIR / "dashcam_feedback_strict"
+
+        if args.use_feedback and "feedback" in policy_stem:
+            return RESULTS_DIR / "dashcam_feedback"
+
+        if "feedback_strict" in policy_stem or "strict" in policy_stem:
+            return RESULTS_DIR / "dashcam_strict_no_feedback"
+
+        return RESULTS_DIR / "dashcam_original"
+
+    if "parking" in source_stem or "sample2" in source_stem:
+        if "multi_res" in policy_stem:
+            return RESULTS_DIR / "yolo_tiled_sample2_multi_res"
+
+        if "960" in policy_stem:
+            return RESULTS_DIR / "yolo_tiled_sample2_960"
+
+        if "640" in policy_stem:
+            return RESULTS_DIR / "yolo_tiled_sample2_640"
+
+        if "feedback" in policy_stem:
+            return RESULTS_DIR / "yolo_tiled_sample2_feedback"
+
+        return RESULTS_DIR / "yolo_tiled_sample2"
+
+    return RESULTS_DIR / "yolo_tiled_sample1"
 
 
-def write_summary(summary: dict[str, Any]) -> None:
-    with SUMMARY_PATH.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=list(summary.keys()))
-        writer.writeheader()
-        writer.writerow(summary)
+def write_summary(summary: dict[str, Any], summary_path: Path) -> None:
+    with summary_path.open("w", encoding="utf-8", newline="") as file:
 
 
-def write_spatial_decisions(rows: list[dict[str, Any]]) -> None:
-    with DECISIONS_PATH.open("w", encoding="utf-8", newline="") as file:
-        fieldnames = [
-            "frame_id",
-            "block_id",
-            "row",
-            "col",
-            "importance",
-            "motion",
-            "edge",
-            "selected_mode",
-            "rule_applied",
-            "x1",
-            "y1",
-            "x2",
-            "y2",
-            "feedback_score",
-        ]
-
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+def write_spatial_decisions(rows: list[dict[str, Any]], decisions_path: Path) -> None:
+    with decisions_path.open("w", encoding="utf-8", newline="") as file:
 
 
 def write_detections(rows: list[dict[str, Any]]) -> None:
     with DETECTIONS_PATH.open("w", encoding="utf-8", newline="") as file:
-        fieldnames = [
-            "frame_id",
-            "strategy",
-            "block_id",
-            "class_id",
-            "confidence",
-            "x1",
-            "y1",
-            "x2",
-            "y2",
-        ]
-
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for row in rows:
-            writer.writerow(
-                {
-                    "frame_id": row["frame_id"],
-                    "strategy": row["strategy"],
-                    "block_id": row["block_id"],
-                    "class_id": row["class_id"],
-                    "confidence": f"{float(row['confidence']):.4f}",
-                    "x1": f"{float(row['x1']):.2f}",
-                    "y1": f"{float(row['y1']):.2f}",
-                    "x2": f"{float(row['x2']):.2f}",
-                    "y2": f"{float(row['y2']):.2f}",
-                }
-            )
 
 
 def run_uniform_tiled(
@@ -318,7 +299,12 @@ def attach_feedback_to_blocks(
         block["feedback_score"] = round(feedback_scores.get(block_id, 0.0), 4)
 
 def run_experiment(args: argparse.Namespace) -> None:
-    RESULTS_DIR.mkdir(exist_ok=True)
+    output_dir = infer_output_dir(args)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_path = output_dir / "yolo_tiled_summary.csv"
+    decisions_path = output_dir / "yolo_tiled_spatial_decisions.csv"
+    detections_path = output_dir / "yolo_tiled_detections.csv"
 
     if args.source == "bus.jpg":
         ensure_default_image_exists()
@@ -517,9 +503,9 @@ def run_experiment(args: argparse.Namespace) -> None:
         "spatial_avg_selected_blocks": f"{mean(selected_block_counts):.2f}",
     }
 
-    write_summary(summary)
-    write_spatial_decisions(all_decision_rows)
-    write_detections(all_detection_rows)
+    write_summary(summary, summary_path)
+    write_spatial_decisions(all_decision_rows, decisions_path)
+    write_detections(all_detection_rows, detections_path)
 
     print("YOLO tiled Spatial DSL experiment complete.")
     print(f"Source: {args.source}")
@@ -561,9 +547,9 @@ def run_experiment(args: argparse.Namespace) -> None:
     print(f"Spatial DSL detection recovery:   {mean(spatial_recovery_scores):.4f}")
     print(f"Spatial reference coverage:       {mean(spatial_coverage_scores):.4f}")
     print()
-    print(f"Summary written to: {SUMMARY_PATH}")
-    print(f"Spatial decisions written to: {DECISIONS_PATH}")
-    print(f"Detections written to: {DETECTIONS_PATH}")
+    print(f"Summary written to: {summary_path}")
+    print(f"Spatial decisions written to: {decisions_path}")
+    print(f"Detections written to: {detections_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -629,6 +615,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.70,
         help="Decay factor for feedback scores between frames.",
+    )
+    
+    parser.add_argument(
+        "--output-dir",
+        default="",
+        help="Output directory relative to Homework-6. If omitted, a directory is inferred from source and policy.",
     )
 
     return parser.parse_args()

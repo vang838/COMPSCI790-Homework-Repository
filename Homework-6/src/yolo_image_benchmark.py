@@ -8,16 +8,16 @@ import torch
 from ultralytics import YOLO
 
 
-BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
+OUTPUT_DIR = RESULTS_DIR / "yolo"
 
 MODEL_PATH = BASE_DIR / "models/yolo11n.pt"
 IMAGE_PATH = BASE_DIR / "images/bus.jpg"
 
 IMAGE_URL = "https://ultralytics.com/images/bus.jpg"
 
-SUMMARY_TXT_PATH = RESULTS_DIR / "yolo_image_benchmark.txt"
-SUMMARY_CSV_PATH = RESULTS_DIR / "yolo_image_benchmark.csv"
+SUMMARY_TXT_PATH = OUTPUT_DIR / "yolo_image_benchmark.txt"
+SUMMARY_CSV_PATH = OUTPUT_DIR / "yolo_image_benchmark.csv"
 
 
 def ensure_image_exists() -> None:
@@ -118,7 +118,7 @@ def run_benchmark(
 
 
 def write_csv(measurements: list[dict[str, float | int]]) -> None:
-    RESULTS_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     with SUMMARY_CSV_PATH.open("w", encoding="utf-8", newline="") as file:
         fieldnames = [
@@ -229,7 +229,7 @@ def print_summary(
 
 
 def main() -> None:
-    RESULTS_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     ensure_image_exists()
 

@@ -22,9 +22,11 @@ DEFAULT_IMAGE_PATH = BASE_DIR / "images/bus.jpg"
 DEFAULT_IMAGE_URL = "https://ultralytics.com/images/bus.jpg"
 DEFAULT_POLICY_PATH = BASE_DIR / "policies" / "yolo_spatial_policy.json"
 
-SUMMARY_CSV_PATH = RESULTS_DIR / "yolo_spatial_summary.csv"
-FRAME_DECISIONS_CSV_PATH = RESULTS_DIR / "yolo_spatial_frame_decisions.csv"
-DETECTIONS_CSV_PATH = RESULTS_DIR / "yolo_spatial_detections.csv"
+OUTPUT_DIR = RESULTS_DIR / "yolo_spatial"
+
+SUMMARY_CSV_PATH = OUTPUT_DIR / "yolo_spatial_summary.csv"
+FRAME_DECISIONS_CSV_PATH = OUTPUT_DIR / "yolo_spatial_frame_decisions.csv"
+DETECTIONS_CSV_PATH = OUTPUT_DIR / "yolo_spatial_detections.csv"
 
 
 def ensure_default_image_exists() -> None:
@@ -406,7 +408,7 @@ def write_summary(summary: dict[str, Any]) -> None:
 
 
 def run_experiment(args: argparse.Namespace) -> None:
-    RESULTS_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.source == "bus.jpg":
         ensure_default_image_exists()

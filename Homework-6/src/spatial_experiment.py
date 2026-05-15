@@ -15,14 +15,14 @@ from src.spatial_runtime import (
 )
 
 
-BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
+OUTPUT_DIR = RESULTS_DIR / "spatial"
 
-FRAME_DECISIONS_PATH = RESULTS_DIR / "spatial_frame_decisions.csv"
-SUMMARY_PATH = RESULTS_DIR / "spatial_experiment_summary.csv"
-MODE_DISTRIBUTION_PATH = RESULTS_DIR / "spatial_mode_distribution.csv"
-MULTI_SEED_SUMMARY_PATH = RESULTS_DIR / "spatial_multiseed_summary.csv"
-BUDGET_SWEEP_PATH = RESULTS_DIR / "spatial_budget_sweep.csv"
+FRAME_DECISIONS_PATH = OUTPUT_DIR / "spatial_frame_decisions.csv"
+SUMMARY_PATH = OUTPUT_DIR / "spatial_experiment_summary.csv"
+MODE_DISTRIBUTION_PATH = OUTPUT_DIR / "spatial_mode_distribution.csv"
+MULTI_SEED_SUMMARY_PATH = OUTPUT_DIR / "spatial_multiseed_summary.csv"
+BUDGET_SWEEP_PATH = OUTPUT_DIR / "spatial_budget_sweep.csv"
 
 
 def clamp(value: float, lower: float = 0.0, upper: float = 1.0) -> float:
@@ -331,7 +331,7 @@ def main() -> None:
         spatial_result,
     ]
 
-    RESULTS_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     write_frame_decisions(spatial_result)
     write_summary(results, budget_ms)

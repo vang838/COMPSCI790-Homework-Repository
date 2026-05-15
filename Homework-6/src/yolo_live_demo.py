@@ -363,8 +363,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--save",
-        default="results/yolo_live_demo_sample2.mp4",
-        help="Output annotated video path relative to Homework-6. Use empty string to disable.",
+        default="results/live_demo/dashcam_feedback_demo.mp4",
     )
 
     parser.add_argument(

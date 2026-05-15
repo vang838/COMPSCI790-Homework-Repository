@@ -1,10 +1,11 @@
+import argparse
 import json
 from pathlib import Path
 from typing import Any
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-POLICY_PATH = BASE_DIR / "policies" / "policy.json"
+DEFAULT_POLICY_PATH = BASE_DIR / "policies" / "policy.json"
 
 
 def load_policy(path: Path) -> dict[str, Any]:
@@ -65,36 +66,13 @@ def select_mode(policy: dict[str, Any], frame: dict[str, Any]) -> tuple[str, str
 
     raise RuntimeError("No rule matched this frame.")
 
-def evaluate_strategy(
-        policy: dict[str, Any],
-        frames: list[dict[str, Any]],
-        strategy_name: str,
-        fixed_mode: str | None = None,
-        ) -> tuple[float, float]:
-            total_latency = 0.0
-            total_quality = 0.0
 
-            for frame in frames:
-                if fixed_mode is None:
-                    mode, _ = select_mode(policy, frame)
-                else:
-                    mode = fixed_mode
-
-                mode_info = policy["modes"][mode]
-                total_latency += float(mode_info["latency_ms"])
-                total_quality += float(mode_info["quality"])
-
-            frame_count = len(frames)
-            avg_latency = total_latency / frame_count
-            avg_quality = total_quality / frame_count
-
-            return avg_latency, avg_quality
-        
 def evaluate_strategy(
     policy: dict[str, Any],
     frames: list[dict[str, Any]],
     fixed_mode: str | None = None,
 ) -> tuple[float, float]:
+    """Evaluate either a fixed mode or the adaptive DSL policy."""
     total_latency = 0.0
     total_quality = 0.0
 
@@ -114,8 +92,30 @@ def evaluate_strategy(
 
     return avg_latency, avg_quality
 
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run the JSON policy interpreter on sample frame metadata."
+    )
+
+    parser.add_argument(
+        "--policy",
+        type=Path,
+        default=DEFAULT_POLICY_PATH,
+        help="Path to the JSON policy file. Default: policies/policy.json",
+    )
+
+    return parser.parse_args()
+
+
 def main() -> None:
-    policy = load_policy(POLICY_PATH)
+    args = parse_args()
+    policy_path = args.policy
+
+    if not policy_path.is_absolute():
+        policy_path = BASE_DIR / policy_path
+
+    policy = load_policy(policy_path)
 
     frames: list[dict[str, Any]] = [
         {"frame_id": 1, "motion": 0.15, "queue": 2},
@@ -128,7 +128,9 @@ def main() -> None:
     total_latency = 0.0
     total_quality = 0.0
 
-    print("Frame | Motion | Queue | Selected Mode | Rule Applied | Latency(ms) | Quality")
+    print(f"Policy file: {policy_path}")
+    print()
+    print("Frame | Motion | Queue | Selected Mode | Rule Applied             | Latency(ms) | Quality")
     print("-" * 91)
 
     for frame in frames:
@@ -160,7 +162,7 @@ def main() -> None:
     print("-" * 30)
     print(f"Average latency: {avg_latency:.2f} ms/frame")
     print(f"Average quality score: {avg_quality:.2f}")
-    
+
     print()
     print("Baseline Comparison")
     print("-" * 65)
@@ -178,7 +180,6 @@ def main() -> None:
         avg_latency, avg_quality = evaluate_strategy(
             policy=policy,
             frames=frames,
-            strategy_name=strategy_name,
             fixed_mode=fixed_mode,
         )
 

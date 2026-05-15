@@ -1,31 +1,34 @@
 {
   "modes": {
-    "fast": { // Low-cost inferencing
+    "fast": {
       "latency_ms": 20,
       "quality": 0.70
     },
-    "balanced": { // Medium-cost inferencing
+    "balanced": {
       "latency_ms": 45,
       "quality": 0.84
     },
-    "accurate": { // Expensive-cost inferencing
+    "accurate": {
       "latency_ms": 90,
       "quality": 0.92
     }
   },
   "rules": [
-    {   //
-      "name": "high_motion_use_accurate", // Use accurate mode for high motion frames
+    {
+      "name": "high_motion_use_accurate",
+      "description": "Use accurate mode for high motion frames.",
       "condition": "motion > 0.70",
       "mode": "accurate"
     },
-    {   // System Pressure | If too many frames are in the queue, runtime uses fast mode (less computation) to keep latency under control
-      "name": "queue_pressure_use_fast", 
+    {
+      "name": "queue_pressure_use_fast",
+      "description": "Use fast mode when queue pressure is high.",
       "condition": "queue > 8",
       "mode": "fast"
     },
-    {   // Fallback Rule | Represents normal system behavior
+    {
       "name": "default_balanced",
+      "description": "Fallback rule for normal system behavior.",
       "condition": "true",
       "mode": "balanced"
     }
