@@ -7,7 +7,7 @@ from statistics import mean
 import torch
 from ultralytics import YOLO
 
-
+BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 OUTPUT_DIR = RESULTS_DIR / "yolo"
 

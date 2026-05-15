@@ -9,19 +9,19 @@ Warm-up runs excluded: 3
 Measured runs: 10
 
 Wall-clock latency after warm-up:
-- Average: 21.07 ms
-- Minimum: 13.34 ms
-- Maximum: 37.46 ms
+- Average: 26.30 ms
+- Minimum: 18.61 ms
+- Maximum: 32.39 ms
 
 YOLO-reported inference time:
-- Average: 14.25 ms
-- Minimum: 8.68 ms
-- Maximum: 29.74 ms
+- Average: 18.52 ms
+- Minimum: 11.14 ms
+- Maximum: 23.93 ms
 
 Detection results:
 - Average detections: 5.00
 - Average mean confidence: 0.8369
 
 Output files:
-- /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_image_benchmark.txt
-- /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo_image_benchmark.csv
+- /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo/yolo_image_benchmark.txt
+- /home/matthew/COMPSCI790-Homework-Repository/Homework-6/results/yolo/yolo_image_benchmark.csv
