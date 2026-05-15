@@ -5,10 +5,9 @@ from typing import Any
 
 from src.run_policy import POLICY_PATH, evaluate_strategy, load_policy, select_mode
 
-
+BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 OUTPUT_DIR = RESULTS_DIR / "experiment"
-
 FRAME_RESULTS_PATH = OUTPUT_DIR / "frame_decisions.csv"
 SUMMARY_RESULTS_PATH = OUTPUT_DIR / "experiment_summary.csv"
 

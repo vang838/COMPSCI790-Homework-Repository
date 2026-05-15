@@ -6,7 +6,7 @@ from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_POLICY_PATH = BASE_DIR / "policies" / "policy.json"
-
+POLICY_PATH = DEFAULT_POLICY_PATH
 
 def load_policy(path: Path) -> dict[str, Any]:
     """Load the adaptive inference policy from a JSON file."""
