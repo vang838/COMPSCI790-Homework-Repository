@@ -64,6 +64,7 @@ def write_frame_decisions(policy: dict[str, Any], frames: list[dict[str, Any]]) 
 
 
 def write_summary(policy: dict[str, Any], frames: list[dict[str, Any]]) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     strategies = [
         ("Fixed fast", "fast"),
         ("Fixed balanced", "balanced"),
